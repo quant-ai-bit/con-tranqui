@@ -1,0 +1,201 @@
+// ContratoIA — Prisma Schema (Prisma 7)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  emailVerified DateTime?
+  name          String?
+  password      String?
+  image         String?
+  role          String     @default("contratista")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  contracts     Contract[]
+}
+
+model Contract {
+  id             String   @id @default(cuid())
+  title          String
+  contractNumber String?
+  startDate      DateTime?
+  endDate        DateTime?
+  entity         String?  // e.g. "Secretaría de Desarrollo Económico"
+  sourceFileName String?  // Original uploaded document name
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scopes         Scope[]
+  reports        Report[]
+
+  // NEW METADATA FIELDS
+  objeto           String?
+  plazo            String?
+  valorTotal       String?
+  valorMensual     String?
+  proyecto         String?
+  supervisor       String?
+  dependencia      String?
+  ccContratista    String?
+  fechaContrato    String?
+  nombreContratista String?
+  fechaInicio      String?
+  fechaTerminacion String?
+  pagosRealizados  String?
+  saldoPendiente   String?
+  porcentajeEjecucion String?
+  porcentajePorEjecutar String?
+  estadoGarantias  String?
+  matrizRiesgos    String?
+  totalPeriodos    Int?      @default(5)
+  nameCoordinador  String?   @default("LUZ ADRIANA MONTOYA ZULUAGA")
+  nameAbogado      String?   @default("ORLYANA MARIN PEREZ")
+  sigContratista   String?   
+  sigSupervisor    String?   
+  sigCoordinador   String?   
+  sigAbogado       String?   
+}
+
+model Scope {
+  id          String             @id @default(cuid())
+  orderNumber Int                // e.g. 1, 2, 3...
+  title       String             // The extracted text of the scope/alcance
+  description String?            // Optional longer description
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  contractId  String
+  contract    Contract           @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  requiredEvidences RequiredEvidence[]
+  evidences   Evidence[]
+  entries     ScopeEntry[]
+  activities  Activity[]
+}
+
+model RequiredEvidence {
+  id        String   @id @default(cuid())
+  name      String   // e.g. "Acta de reunión firmada", "Fotos del evento"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  scopeId   String
+  scope     Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  evidences Evidence[]
+}
+
+model Evidence {
+  id          String   @id @default(cuid())
+  fileName    String
+  fileType    String   // "image", "pdf", "audio", "document"
+  filePath    String   // Local path or blob URL
+  fileSize    Int?
+  month       Int      // 1-12
+  year        Int      // e.g. 2026
+  uploadedAt  DateTime @default(now())
+  scopeId     String
+  scope       Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  entryId     String?
+  entry       ScopeEntry? @relation(fields: [entryId], references: [id])
+  requiredEvidenceId String?
+  requiredEvidence   RequiredEvidence? @relation(fields: [requiredEvidenceId], references: [id])
+  content            String?
+  originalContent    String?
+  aiContent          String?
+  selectedText       String?   @default("original") // "original" or "ai"
+  activityId  String?
+  activity    Activity?  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+}
+
+model Activity {
+  id          String     @id @default(cuid())
+  title       String
+  date        String?    // e.g. "19 de febrero"
+  location    String?    // e.g. "Ukumari"
+  month       Int
+  year        Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  scopeId     String
+  scope       Scope      @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  evidences   Evidence[]
+}
+
+// Monthly narrative text per scope (the "informe" text for each alcance per month)
+model ScopeEntry {
+  id            String     @id @default(cuid())
+  month         Int        // 1-12
+  year          Int        // e.g. 2026
+  narrativeText String?    // AI-generated or manually written text
+  status        String     @default("pending") // pending, generated, reviewed, confirmed
+  aiMode        String?    // "semi", "auto", "chat"
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  scopeId       String
+  scope         Scope      @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  evidences     Evidence[]
+  observations  String?
+
+  @@unique([scopeId, month, year])
+}
+
+model Report {
+  id           String   @id @default(cuid())
+  month        Int
+  year         Int
+  type         String   @default("activities") // activities, supervision
+  status       String   @default("draft") // draft, generated, reviewed, delivered
+  generatedAt  DateTime?
+  filePath     String?  // Path to .docx file
+  contractId   String
+  contract     Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // NEW REPORT-LEVEL FIELDS
+  driveLink     String?
+  periodoActual String?
+  periodoTexto  String?
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
