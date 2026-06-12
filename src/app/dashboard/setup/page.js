@@ -39,6 +39,7 @@ export default function SetupPage() {
   const [matrizRiesgos, setMatrizRiesgos] = useState("");
   const [detectedFields, setDetectedFields] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
+  const [savedMissingFields, setSavedMissingFields] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -97,16 +98,16 @@ export default function SetupPage() {
 
   // Helper to render contract fields with detection and error alerts
   const renderContractField = (id, label, value, setter, placeholder, isTextArea = false, isDate = false) => {
-    const isDetected = detectedFields[id];
+    const isFieldEmpty = !value || !value.trim();
     const hasError = validationErrors[id];
     
     return (
       <div className="form-group" style={{ marginBottom: 0 }} id={`field-${id}`}>
         <label className="form-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontWeight: 600 }}>{label} *</span>
-          {isDetected === false && (
+          {isFieldEmpty && (
             <span style={{ fontSize: "0.75rem", color: "#f59e0b", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 3 }}>
-              ⚠️ No detectado
+              ⚠️ Vacío / No detectado
             </span>
           )}
         </label>
@@ -127,7 +128,7 @@ export default function SetupPage() {
             }}
             placeholder={placeholder}
             style={{
-              borderColor: hasError ? "rgb(239, 68, 68)" : (isDetected === false ? "rgba(245, 158, 11, 0.4)" : ""),
+              borderColor: hasError ? "rgb(239, 68, 68)" : (isFieldEmpty ? "rgba(245, 158, 11, 0.4)" : ""),
               resize: "vertical"
             }}
           />
@@ -147,7 +148,7 @@ export default function SetupPage() {
               }
             }}
             style={{
-              borderColor: hasError ? "rgb(239, 68, 68)" : (isDetected === false ? "rgba(245, 158, 11, 0.4)" : "")
+              borderColor: hasError ? "rgb(239, 68, 68)" : (isFieldEmpty ? "rgba(245, 158, 11, 0.4)" : "")
             }}
           />
         ) : (
@@ -166,7 +167,7 @@ export default function SetupPage() {
             }}
             placeholder={placeholder}
             style={{
-              borderColor: hasError ? "rgb(239, 68, 68)" : (isDetected === false ? "rgba(245, 158, 11, 0.4)" : "")
+              borderColor: hasError ? "rgb(239, 68, 68)" : (isFieldEmpty ? "rgba(245, 158, 11, 0.4)" : "")
             }}
           />
         )}
@@ -409,37 +410,27 @@ export default function SetupPage() {
 
   // --- STEP 3 → STEP 4: SAVE ---
   const handleSave = useCallback(async () => {
-    // Validate all required contract metadata fields
-    const errors = {};
-    if (!contractTitle || !contractTitle.trim()) errors.contractTitle = "El título del contrato es requerido.";
-    if (!contractNumber || !contractNumber.trim()) errors.contractNumber = "El número de contrato es requerido.";
-    if (!entity || !entity.trim()) errors.entity = "La entidad contratante es requerida.";
-    if (!fechaContrato || !fechaContrato.trim()) errors.fechaContrato = "La fecha de suscripción es requerida.";
-    if (!nombreContratista || !nombreContratista.trim()) errors.nombreContratista = "El nombre del contratista es requerido.";
-    if (!ccContratista || !ccContratista.trim()) errors.ccContratista = "La identificación (CC) del contratista es requerida.";
-    if (!objeto || !objeto.trim()) errors.objeto = "El objeto del contrato es requerido.";
-    if (!plazo || !plazo.trim()) errors.plazo = "El plazo de ejecución es requerido.";
-    if (!fechaInicio || !fechaInicio.trim()) errors.fechaInicio = "La fecha de inicio es requerida.";
-    if (!fechaTerminacion || !fechaTerminacion.trim()) errors.fechaTerminacion = "La fecha de terminación es requerida.";
-    if (!valorTotal || !valorTotal.trim()) errors.valorTotal = "El valor total es requerido.";
-    if (!pagosRealizados || !pagosRealizados.trim()) errors.pagosRealizados = "Los pagos realizados son requeridos.";
-    if (!saldoPendiente || !saldoPendiente.trim()) errors.saldoPendiente = "El saldo pendiente es requerido.";
-    if (!porcentajeEjecucion || !porcentajeEjecucion.trim()) errors.porcentajeEjecucion = "El porcentaje de ejecución es requerido.";
-    if (!porcentajePorEjecutar || !porcentajePorEjecutar.trim()) errors.porcentajePorEjecutar = "El porcentaje por ejecutar es requerido.";
-    if (!estadoGarantias || !estadoGarantias.trim()) errors.estadoGarantias = "El estado de garantías es requerido.";
-    if (!matrizRiesgos || !matrizRiesgos.trim()) errors.matrizRiesgos = "La matriz de riesgos es requerida.";
+    // Collect all missing fields to inform the user
+    const missing = [];
+    if (!contractTitle || !contractTitle.trim()) missing.push("Título del contrato");
+    if (!contractNumber || !contractNumber.trim()) missing.push("Número del contrato");
+    if (!fechaContrato || !fechaContrato.trim()) missing.push("Fecha del contrato (Suscripción)");
+    if (!entity || !entity.trim()) missing.push("Entidad contratante");
+    if (!nombreContratista || !nombreContratista.trim()) missing.push("Nombre del contratista");
+    if (!ccContratista || !ccContratista.trim()) missing.push("Identificación del contratista (CC)");
+    if (!objeto || !objeto.trim()) missing.push("Objeto del contrato");
+    if (!plazo || !plazo.trim()) missing.push("Plazo de ejecución");
+    if (!fechaInicio || !fechaInicio.trim()) missing.push("Fecha de inicio");
+    if (!fechaTerminacion || !fechaTerminacion.trim()) missing.push("Fecha de terminación");
+    if (!valorTotal || !valorTotal.trim()) missing.push("Valor total del contrato o convenio");
+    if (!pagosRealizados || !pagosRealizados.trim()) missing.push("Pagos realizados a la fecha");
+    if (!saldoPendiente || !saldoPendiente.trim()) missing.push("Saldo pendiente por ejecutar");
+    if (!porcentajeEjecucion || !porcentajeEjecucion.trim()) missing.push("Porcentaje de ejecución");
+    if (!porcentajePorEjecutar || !porcentajePorEjecutar.trim()) missing.push("Porcentaje por ejecutar");
+    if (!estadoGarantias || !estadoGarantias.trim()) missing.push("Estado de las garantías");
+    if (!matrizRiesgos || !matrizRiesgos.trim()) missing.push("Matriz de riesgos");
 
-    if (Object.keys(errors).length > 0) {
-      setValidationErrors(errors);
-      setError("Por favor completa toda la información básica requerida del contrato para finalizar la configuración.");
-      // Scroll to first error field
-      const firstErrorField = Object.keys(errors)[0];
-      const element = document.getElementById(`field-${firstErrorField}`);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      return;
-    }
+    setSavedMissingFields(missing);
 
     if (editableScopes.length === 0) {
       setError("Agrega al menos un alcance.");
@@ -460,9 +451,9 @@ export default function SetupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: contractTitle,
-          contractNumber: contractNumber,
-          entity: entity,
+          title: contractTitle.trim() || "Contrato sin título",
+          contractNumber: contractNumber || null,
+          entity: entity || null,
           sourceFileName: file?.name || "texto_pegado",
           objeto,
           plazo,
@@ -1025,6 +1016,30 @@ export default function SetupPage() {
               Ya puedes comenzar a cargar evidencias y generar informes
               mensuales.
             </p>
+            {savedMissingFields && savedMissingFields.length > 0 && (
+              <div style={{
+                margin: "16px auto 24px",
+                maxWidth: 500,
+                padding: "16px 20px",
+                background: "rgba(245, 158, 11, 0.08)",
+                borderRadius: "var(--radius-md)",
+                fontSize: "0.85rem",
+                color: "#f59e0b",
+                border: "1px solid rgba(245, 158, 11, 0.2)",
+                textAlign: "left"
+              }}>
+                <strong style={{ display: "block", marginBottom: 6 }}>⚠️ Contrato guardado parcialmente</strong>
+                Faltan por completar los siguientes campos básicos del contrato:
+                <ul style={{ margin: "8px 0 0 16px", padding: 0, lineHeight: 1.5 }}>
+                  {savedMissingFields.map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
+                <p style={{ margin: "8px 0 0 0", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                  Puedes completarlos más adelante editando los detalles del contrato.
+                </p>
+              </div>
+            )}
             <div
               style={{
                 display: "flex",
@@ -1064,6 +1079,7 @@ export default function SetupPage() {
                   setMatrizRiesgos("");
                   setDetectedFields({});
                   setValidationErrors({});
+                  setSavedMissingFields([]);
                   setSaved(false);
                 }}
               >
