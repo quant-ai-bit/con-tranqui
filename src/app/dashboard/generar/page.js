@@ -16,6 +16,55 @@ function stripHtml(html) {
 }
 
 export default function GenerarPage() {
+  const spanishToDateString = (str) => {
+    if (!str) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+    const months = {
+      enero: "01", febrero: "02", marzo: "03", abril: "04", mayo: "05", junio: "06",
+      julio: "07", agosto: "08", septiembre: "09", octubre: "10", noviembre: "11", diciembre: "12"
+    };
+
+    const clean = str.toLowerCase().replace(/del/g, "de").replace(/\s+/g, " ");
+    
+    // Case 1: with year (e.g., "28 de enero de 2026")
+    const matchWithYear = clean.match(/(\d{1,2})\s+de\s+([a-z]+)\s+(?:de\s+)?(\d{4})/);
+    if (matchWithYear) {
+      const day = matchWithYear[1].padStart(2, "0");
+      const month = months[matchWithYear[2]];
+      const year = matchWithYear[3];
+      if (month) return `${year}-${month}-${day}`;
+    }
+
+    // Case 2: without year (e.g., "19 de febrero")
+    const matchNoYear = clean.match(/(\d{1,2})\s+de\s+([a-z]+)/);
+    if (matchNoYear) {
+      const day = matchNoYear[1].padStart(2, "0");
+      const month = months[matchNoYear[2]];
+      const year = "2026"; // default year for the contract
+      if (month) return `${year}-${month}-${day}`;
+    }
+
+    return "";
+  };
+
+  const dateStringToSpanish = (dateStr) => {
+    if (!dateStr) return "";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const year = parts[0];
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = [
+      "enero", "febrero", "marzo", "abril", "mayo", "junio",
+      "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ];
+    if (monthIdx >= 0 && monthIdx <= 11) {
+      return `${day} de ${months[monthIdx]} de ${year}`;
+    }
+    return dateStr;
+  };
+
   const [step, setStep] = useState(1); // 1: Verify, 2: Preview, 3: Generating, 4: Download
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -870,11 +919,11 @@ export default function GenerarPage() {
                               <div>
                                 <label style={{ display: "block", fontSize: "0.7rem", color: "var(--text-secondary)", marginBottom: 2 }}>Fecha</label>
                                 <input
-                                  type="text"
-                                  value={act.date || ""}
+                                  type="date"
+                                  value={spanishToDateString(act.date || "")}
                                   onChange={(e) => {
                                     const updated = [...scopeActs];
-                                    updated[actIdx].date = e.target.value;
+                                    updated[actIdx].date = dateStringToSpanish(e.target.value);
                                     setTempActivities(prev => ({ ...prev, [scope.id]: updated }));
                                   }}
                                   className="form-input"

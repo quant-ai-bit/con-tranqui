@@ -3,6 +3,55 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function SupervisoraPage() {
+  const spanishToDateString = (str) => {
+    if (!str) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+    const months = {
+      enero: "01", febrero: "02", marzo: "03", abril: "04", mayo: "05", junio: "06",
+      julio: "07", agosto: "08", septiembre: "09", octubre: "10", noviembre: "11", diciembre: "12"
+    };
+
+    const clean = str.toLowerCase().replace(/del/g, "de").replace(/\s+/g, " ");
+    
+    // Case 1: with year (e.g., "28 de enero de 2026")
+    const matchWithYear = clean.match(/(\d{1,2})\s+de\s+([a-z]+)\s+(?:de\s+)?(\d{4})/);
+    if (matchWithYear) {
+      const day = matchWithYear[1].padStart(2, "0");
+      const month = months[matchWithYear[2]];
+      const year = matchWithYear[3];
+      if (month) return `${year}-${month}-${day}`;
+    }
+
+    // Case 2: without year (e.g., "19 de febrero")
+    const matchNoYear = clean.match(/(\d{1,2})\s+de\s+([a-z]+)/);
+    if (matchNoYear) {
+      const day = matchNoYear[1].padStart(2, "0");
+      const month = months[matchNoYear[2]];
+      const year = "2026"; // default year for the contract
+      if (month) return `${year}-${month}-${day}`;
+    }
+
+    return "";
+  };
+
+  const dateStringToSpanish = (dateStr) => {
+    if (!dateStr) return "";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const year = parts[0];
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = [
+      "enero", "febrero", "marzo", "abril", "mayo", "junio",
+      "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ];
+    if (monthIdx >= 0 && monthIdx <= 11) {
+      return `${day} de ${months[monthIdx]} de ${year}`;
+    }
+    return dateStr;
+  };
+
   const [step, setStep] = useState(1); // 1: Form, 2: Preview, 3: Generating, 4: Download
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -545,9 +594,9 @@ export default function SupervisoraPage() {
                       Fecha del Contrato (Suscripción)
                     </label>
                     <input
-                      type="text"
-                      value={fechaContrato}
-                      onChange={(e) => setFechaContrato(e.target.value)}
+                      type="date"
+                      value={spanishToDateString(fechaContrato)}
+                      onChange={(e) => setFechaContrato(dateStringToSpanish(e.target.value))}
                       className="form-input"
                       required
                     />
@@ -627,11 +676,10 @@ export default function SupervisoraPage() {
                       Fecha Inicio
                     </label>
                     <input
-                      type="text"
-                      value={startDateStr}
-                      onChange={(e) => setStartDateStr(e.target.value)}
+                      type="date"
+                      value={spanishToDateString(startDateStr)}
+                      onChange={(e) => setStartDateStr(dateStringToSpanish(e.target.value))}
                       className="form-input"
-                      placeholder="e.g. 2 De febrero del 2026"
                       required
                     />
                   </div>
@@ -640,11 +688,10 @@ export default function SupervisoraPage() {
                       Fecha Terminación
                     </label>
                     <input
-                      type="text"
-                      value={endDateStr}
-                      onChange={(e) => setEndDateStr(e.target.value)}
+                      type="date"
+                      value={spanishToDateString(endDateStr)}
+                      onChange={(e) => setEndDateStr(dateStringToSpanish(e.target.value))}
                       className="form-input"
-                      placeholder="e.g. 1 de Julio del 2026"
                       required
                     />
                   </div>
@@ -892,27 +939,27 @@ export default function SupervisoraPage() {
               <div>
                 <label className="form-label">Fecha Inicio</label>
                 <input
-                  type="text"
-                  value={startDateStr}
-                  onChange={(e) => setStartDateStr(e.target.value)}
+                  type="date"
+                  value={spanishToDateString(startDateStr)}
+                  onChange={(e) => setStartDateStr(dateStringToSpanish(e.target.value))}
                   className="form-input"
                 />
               </div>
               <div>
                 <label className="form-label">Fecha Fin</label>
                 <input
-                  type="text"
-                  value={endDateStr}
-                  onChange={(e) => setEndDateStr(e.target.value)}
+                  type="date"
+                  value={spanishToDateString(endDateStr)}
+                  onChange={(e) => setEndDateStr(dateStringToSpanish(e.target.value))}
                   className="form-input"
                 />
               </div>
               <div>
                 <label className="form-label">Fecha del Contrato</label>
                 <input
-                  type="text"
-                  value={fechaContrato}
-                  onChange={(e) => setFechaContrato(e.target.value)}
+                  type="date"
+                  value={spanishToDateString(fechaContrato)}
+                  onChange={(e) => setFechaContrato(dateStringToSpanish(e.target.value))}
                   className="form-input"
                 />
               </div>

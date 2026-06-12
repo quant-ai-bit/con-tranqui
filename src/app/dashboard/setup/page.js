@@ -45,8 +45,58 @@ export default function SetupPage() {
   const [dragover, setDragover] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Helper functions for date conversion
+  const spanishToDateString = (str) => {
+    if (!str) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+    const months = {
+      enero: "01", febrero: "02", marzo: "03", abril: "04", mayo: "05", junio: "06",
+      julio: "07", agosto: "08", septiembre: "09", octubre: "10", noviembre: "11", diciembre: "12"
+    };
+
+    const clean = str.toLowerCase().replace(/del/g, "de").replace(/\s+/g, " ");
+    
+    // Case 1: with year (e.g., "28 de enero de 2026")
+    const matchWithYear = clean.match(/(\d{1,2})\s+de\s+([a-z]+)\s+(?:de\s+)?(\d{4})/);
+    if (matchWithYear) {
+      const day = matchWithYear[1].padStart(2, "0");
+      const month = months[matchWithYear[2]];
+      const year = matchWithYear[3];
+      if (month) return `${year}-${month}-${day}`;
+    }
+
+    // Case 2: without year (e.g., "19 de febrero")
+    const matchNoYear = clean.match(/(\d{1,2})\s+de\s+([a-z]+)/);
+    if (matchNoYear) {
+      const day = matchNoYear[1].padStart(2, "0");
+      const month = months[matchNoYear[2]];
+      const year = "2026"; // default year for the contract
+      if (month) return `${year}-${month}-${day}`;
+    }
+
+    return "";
+  };
+
+  const dateStringToSpanish = (dateStr) => {
+    if (!dateStr) return "";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const year = parts[0];
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = [
+      "enero", "febrero", "marzo", "abril", "mayo", "junio",
+      "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ];
+    if (monthIdx >= 0 && monthIdx <= 11) {
+      return `${day} de ${months[monthIdx]} de ${year}`;
+    }
+    return dateStr;
+  };
+
   // Helper to render contract fields with detection and error alerts
-  const renderContractField = (id, label, value, setter, placeholder, isTextArea = false) => {
+  const renderContractField = (id, label, value, setter, placeholder, isTextArea = false, isDate = false) => {
     const isDetected = detectedFields[id];
     const hasError = validationErrors[id];
     
@@ -79,6 +129,25 @@ export default function SetupPage() {
             style={{
               borderColor: hasError ? "rgb(239, 68, 68)" : (isDetected === false ? "rgba(245, 158, 11, 0.4)" : ""),
               resize: "vertical"
+            }}
+          />
+        ) : isDate ? (
+          <input
+            type="date"
+            className="form-input animate-in"
+            value={spanishToDateString(value)}
+            onChange={(e) => {
+              setter(dateStringToSpanish(e.target.value));
+              if (validationErrors[id]) {
+                setValidationErrors(prev => {
+                  const copy = { ...prev };
+                  delete copy[id];
+                  return copy;
+                });
+              }
+            }}
+            style={{
+              borderColor: hasError ? "rgb(239, 68, 68)" : (isDetected === false ? "rgba(245, 158, 11, 0.4)" : "")
             }}
           />
         ) : (
@@ -699,13 +768,13 @@ export default function SetupPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {renderContractField("contractTitle", "Título del contrato", contractTitle, setContractTitle, "Ej: Contrato de Prestación de Servicios - Turismo")}
               {renderContractField("contractNumber", "Número del contrato", contractNumber, setContractNumber, "Ej: 3227")}
-              {renderContractField("fechaContrato", "Fecha del contrato (Suscripción)", fechaContrato, setFechaContrato, "Ej: 28 de enero de 2026")}
+              {renderContractField("fechaContrato", "Fecha del contrato (Suscripción)", fechaContrato, setFechaContrato, "Ej: 28 de enero de 2026", false, true)}
               {renderContractField("entity", "Entidad contratante", entity, setEntity, "Ej: Secretaría de Desarrollo Económico y Competitividad")}
               {renderContractField("nombreContratista", "Nombre del contratista", nombreContratista, setNombreContratista, "Ej: HAMILTON EDUARDO TELLO VILLA")}
               {renderContractField("ccContratista", "Identificación del contratista (CC)", ccContratista, setCcContratista, "Ej: 1.234.567.890")}
               {renderContractField("plazo", "Plazo de ejecución", plazo, setPlazo, "Ej: 5 meses")}
-              {renderContractField("fechaInicio", "Fecha de inicio", fechaInicio, setFechaInicio, "Ej: 2 de febrero del 2026")}
-              {renderContractField("fechaTerminacion", "Fecha de terminación", fechaTerminacion, setFechaTerminacion, "Ej: 1 de julio del 2026")}
+              {renderContractField("fechaInicio", "Fecha de inicio", fechaInicio, setFechaInicio, "Ej: 2 de febrero del 2026", false, true)}
+              {renderContractField("fechaTerminacion", "Fecha de terminación", fechaTerminacion, setFechaTerminacion, "Ej: 1 de julio del 2026", false, true)}
             </div>
             <div style={{ marginTop: 16 }}>
               {renderContractField("objeto", "Objeto del contrato", objeto, setObjeto, "Ej: PRESTACIÓN DE SERVICIOS PROFESIONALES EN LA SECRETARÍA DE DESARROLLO ECONÓMICO...", true)}
