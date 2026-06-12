@@ -56,3 +56,5 @@ __pycache__/
 
 # Reports generated locally
 /reports/
+
+.vercel
