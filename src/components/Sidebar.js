@@ -14,6 +14,7 @@ const navItems = [
 
 const navSecondary = [
   { label: "Configurar Contrato", href: "/dashboard/setup", icon: "🔧" },
+  { label: "Arquitectura y Sistema", href: "/dashboard/arquitectura", icon: "🌐" },
   { label: "Configuración", href: "/dashboard/config", icon: "⚙️" },
 ];
 
@@ -97,16 +98,23 @@ export default function Sidebar() {
         )}
 
         <div className="nav-section-title">Administración</div>
-        {navSecondary.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`nav-link ${isActive(item.href) ? "active" : ""}`}
-          >
-            <span className="nav-link-icon">{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
+        {navSecondary
+          .filter((item) => {
+            if (item.href === "/dashboard/arquitectura") {
+              return session?.user?.role === "administrador" || session?.user?.role === "admin" || session?.user?.role === "supervisor";
+            }
+            return true;
+          })
+          .map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`nav-link ${isActive(item.href) ? "active" : ""}`}
+            >
+              <span className="nav-link-icon">{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
       </nav>
 
       <div className="sidebar-footer">

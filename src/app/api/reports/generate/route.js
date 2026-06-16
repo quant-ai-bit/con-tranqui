@@ -17,6 +17,7 @@ import {
 } from "docx";
 import path from "path";
 import { writeFile, mkdir } from "fs/promises";
+import { put } from "@vercel/blob";
 
 export const runtime = "nodejs";
 
@@ -467,14 +468,33 @@ export async function POST(request) {
     // Generate buffer
     const buffer = await Packer.toBuffer(doc);
 
-    // Save to file system
-    const reportsDir = path.join(process.cwd(), "reports");
-    await mkdir(reportsDir, { recursive: true });
-
     const cleanNumber = (contract.contractNumber || "contrato").replace(/[^a-zA-Z0-9.-]/g, "_");
     const fileName = `Informe_${cleanNumber}_${monthName}_${currentYear}.docx`;
-    const filePath = path.join(reportsDir, fileName);
-    await writeFile(filePath, buffer);
+
+    let filePathResult = `/reports/${fileName}`;
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        console.log(`Uploading Activities report ${fileName} to Vercel Blob...`);
+        const blob = await put(`reports/${fileName}`, buffer, {
+          access: "public",
+          addRandomSuffix: false,
+        });
+        filePathResult = blob.url;
+        console.log(`Uploaded Activities report to Vercel Blob successfully: ${filePathResult}`);
+      } catch (blobError) {
+        console.error("Error uploading to Vercel Blob, falling back to local file system:", blobError);
+        const reportsDir = path.join(process.cwd(), "reports");
+        await mkdir(reportsDir, { recursive: true });
+        const filePath = path.join(reportsDir, fileName);
+        await writeFile(filePath, buffer);
+      }
+    } else {
+      const reportsDir = path.join(process.cwd(), "reports");
+      await mkdir(reportsDir, { recursive: true });
+      const filePath = path.join(reportsDir, fileName);
+      await writeFile(filePath, buffer);
+    }
 
     // Upsert Report record in DB
     const report = await prisma.report.upsert({
@@ -486,7 +506,7 @@ export async function POST(request) {
       update: {
         status: "generated",
         generatedAt: new Date(),
-        filePath: `/reports/${fileName}`,
+        filePath: filePathResult,
         driveLink,
         periodoActual,
         periodoTexto,
@@ -498,7 +518,7 @@ export async function POST(request) {
         type: "activities",
         status: "generated",
         generatedAt: new Date(),
-        filePath: `/reports/${fileName}`,
+        filePath: filePathResult,
         driveLink,
         periodoActual,
         periodoTexto,

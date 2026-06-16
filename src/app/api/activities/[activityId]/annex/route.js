@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun } from "docx";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { readFile } from "fs/promises";
+import path from "path";
 
 export const runtime = "nodejs";
 
@@ -32,9 +34,19 @@ function getPeriodText(startDateStr, month, year) {
   return `${pStartDay} de ${pStartMonthName} al ${pEndDayStr} de ${pEndMonthName}`;
 }
 
-// Helper: fetch image from URL (Vercel Blob or external) and return buffer
+// Helper: fetch image from URL (Vercel Blob or external) or read from local disk
 async function fetchImageBuffer(url) {
+  if (!url) return null;
   try {
+    // Check if it is a local upload path
+    if (url.startsWith("/uploads/") || url.startsWith("uploads/")) {
+      const cleanUrl = url.startsWith("/") ? url.slice(1) : url;
+      const localPath = path.join(process.cwd(), cleanUrl);
+      const buffer = await readFile(localPath);
+      return buffer;
+    }
+    
+    // Otherwise fetch over HTTP
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const arrayBuffer = await response.arrayBuffer();
@@ -199,8 +211,11 @@ export async function GET(request, { params }) {
       })
     ];
 
-    // Embed images — fetch from Vercel Blob URLs
-    const visualEvidences = evidences.filter(ev => ev.fileType === "image");
+    // Embed images — fetch from local or Vercel Blob URLs, filter out non-images (like PDFs saved as image fileType)
+    const visualEvidences = evidences.filter(ev => 
+      ev.fileType === "image" && 
+      !ev.fileName.toLowerCase().endsWith(".pdf")
+    );
     
     for (const ev of visualEvidences) {
       if (!ev.filePath) continue;
@@ -270,9 +285,9 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Embed any other non-image and non-Word physical files as referenced attachments
+    // Embed any other non-image and non-Word physical files as referenced attachments (include PDFs here)
     const otherEvidences = evidences.filter(ev => 
-      ev.fileType !== "image" && 
+      (ev.fileType !== "image" || ev.fileName.toLowerCase().endsWith(".pdf")) && 
       ev.fileType !== "text" &&
       !ev.fileName.toLowerCase().endsWith(".docx") &&
       !ev.fileName.toLowerCase().endsWith(".doc")

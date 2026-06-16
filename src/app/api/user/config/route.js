@@ -23,7 +23,7 @@ export async function PUT(request) {
     const updateData = {};
     if (name) updateData.name = name;
     if (role) {
-      if (role !== "contratista" && role !== "supervisor") {
+      if (role !== "contratista" && role !== "supervisor" && role !== "administrador" && role !== "admin") {
         return NextResponse.json({ error: "Rol no válido" }, { status: 400 });
       }
       updateData.role = role;

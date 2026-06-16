@@ -37,7 +37,8 @@ export default function ConfigPage() {
 
     if (session?.user) {
       setUserName(session.user.name || "");
-      setUserRole(session.user.role || "contratista");
+      const role = session.user.role;
+      setUserRole(role === "supervisor" ? "administrador" : (role || "contratista"));
     }
 
     if (typeof window !== "undefined") {
@@ -166,7 +167,7 @@ export default function ConfigPage() {
                 className="form-input"
               >
                 <option value="contratista">Contratista (Carga evidencias y narrativas)</option>
-                <option value="supervisor">Supervisor (Evalúa y aprueba entregables)</option>
+                <option value="administrador">Administrador (Evalúa y aprueba entregables)</option>
               </select>
             </div>
 
@@ -182,53 +183,55 @@ export default function ConfigPage() {
         </div>
 
         {/* AI Generator Settings */}
-        <div className="card animate-in">
-          <div className="card-header" style={{ justifyContent: "space-between" }}>
-            <span className="card-title">🤖 Configuración de IA (Gemini)</span>
-            <button
-              onClick={handleRestorePrompt}
-              className="btn btn-ghost btn-sm"
-              style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-            >
-              Restaurar Prompt
-            </button>
+        {(userRole === "administrador" || userRole === "admin" || userRole === "supervisor") && (
+          <div className="card animate-in">
+            <div className="card-header" style={{ justifyContent: "space-between" }}>
+              <span className="card-title">🤖 Configuración de IA (Gemini)</span>
+              <button
+                onClick={handleRestorePrompt}
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+              >
+                Restaurar Prompt
+              </button>
+            </div>
+            <form onSubmit={handleSavePromptSettings} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label className="form-label" style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                  Clave API de Gemini (Opcional - Desarrollo)
+                </label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="form-input"
+                  placeholder="AIzaSy..."
+                />
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4, display: "block" }}>
+                  Si se deja vacía, se utilizará la clave configurada en el servidor (.env) o el generador de pruebas.
+                </span>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                  Instrucciones del Prompt (Sistema)
+                </label>
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  className="form-input"
+                  rows={12}
+                  style={{ fontFamily: "monospace", fontSize: "0.8rem", resize: "vertical" }}
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary">
+                💾 Guardar Configuración de IA
+              </button>
+            </form>
           </div>
-          <form onSubmit={handleSavePromptSettings} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label className="form-label" style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                Clave API de Gemini (Opcional - Desarrollo)
-              </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="form-input"
-                placeholder="AIzaSy..."
-              />
-              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4, display: "block" }}>
-                Si se deja vacía, se utilizará la clave configurada en el servidor (.env) o el generador de pruebas.
-              </span>
-            </div>
-
-            <div>
-              <label className="form-label" style={{ display: "block", marginBottom: 6, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                Instrucciones del Prompt (Sistema)
-              </label>
-              <textarea
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                className="form-input"
-                rows={12}
-                style={{ fontFamily: "monospace", fontSize: "0.8rem", resize: "vertical" }}
-                required
-              />
-            </div>
-
-            <button type="submit" className="btn btn-primary">
-              💾 Guardar Configuración de IA
-            </button>
-          </form>
-        </div>
+        )}
       </div>
     </>
   );

@@ -17,6 +17,7 @@ import {
 } from "docx";
 import path from "path";
 import { writeFile, mkdir } from "fs/promises";
+import { put } from "@vercel/blob";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -617,13 +618,32 @@ export async function POST(request) {
 
     const buffer = await Packer.toBuffer(doc);
 
-    // Save to filesystem
-    const reportsDir = path.join(process.cwd(), "reports");
-    await mkdir(reportsDir, { recursive: true });
-
     const fileName = `Informe_Supervision_${contract.contractNumber || "contrato"}_${monthName}_${currentYear}.docx`;
-    const filePath = path.join(reportsDir, fileName);
-    await writeFile(filePath, buffer);
+
+    let filePathResult = `/reports/${fileName}`;
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        console.log(`Uploading Supervision report ${fileName} to Vercel Blob...`);
+        const blob = await put(`reports/${fileName}`, buffer, {
+          access: "public",
+          addRandomSuffix: false,
+        });
+        filePathResult = blob.url;
+        console.log(`Uploaded Supervision report to Vercel Blob successfully: ${filePathResult}`);
+      } catch (blobError) {
+        console.error("Error uploading to Vercel Blob, falling back to local file system:", blobError);
+        const reportsDir = path.join(process.cwd(), "reports");
+        await mkdir(reportsDir, { recursive: true });
+        const filePath = path.join(reportsDir, fileName);
+        await writeFile(filePath, buffer);
+      }
+    } else {
+      const reportsDir = path.join(process.cwd(), "reports");
+      await mkdir(reportsDir, { recursive: true });
+      const filePath = path.join(reportsDir, fileName);
+      await writeFile(filePath, buffer);
+    }
 
     // Save report record to DB
     const report = await prisma.report.upsert({
@@ -635,7 +655,7 @@ export async function POST(request) {
       update: {
         status: "generated",
         generatedAt: new Date(),
-        filePath: `/reports/${fileName}`,
+        filePath: filePathResult,
       },
       create: {
         contractId,
@@ -644,7 +664,7 @@ export async function POST(request) {
         type: "supervision",
         status: "generated",
         generatedAt: new Date(),
-        filePath: `/reports/${fileName}`,
+        filePath: filePathResult,
       },
     });
 

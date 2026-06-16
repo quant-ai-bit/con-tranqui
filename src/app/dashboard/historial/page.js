@@ -143,6 +143,17 @@ export default function HistorialPage() {
           >
             Limpiar filtros
           </button>
+
+          {monthFilter !== "all" && yearFilter !== "all" && filteredReports.length > 0 && (
+            <a 
+              href={`/api/reports/download-all?contractId=${filteredReports[0].contractId}&month=${monthFilter}&year=${yearFilter}`}
+              download
+              className="btn btn-secondary btn-sm"
+              style={{ marginTop: 20, height: "36px", display: "inline-flex", alignItems: "center", background: "rgba(99, 102, 241, 0.1)", borderColor: "rgba(99, 102, 241, 0.4)", color: "var(--text-primary)", gap: "6px" }}
+            >
+              📦 Descargar Todo el Período (.ZIP)
+            </a>
+          )}
         </div>
       </div>
 

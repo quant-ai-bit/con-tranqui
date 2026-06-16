@@ -221,6 +221,15 @@ export default function SetupPage() {
   // --- STEP 1 → STEP 2: EXTRACT SCOPES ---
   const handleExtract = useCallback(async () => {
     setError("");
+
+    if (inputMode === "file" && file) {
+      const MAX_SIZE = 4.5 * 1024 * 1024; // 4.5 MB
+      if (file.size > MAX_SIZE) {
+        setError("El archivo es demasiado grande. El límite de tamaño para extracción por IA es de 4.5 MB. Por favor, sube un documento más liviano (por ejemplo, el contrato sin anexos).");
+        return;
+      }
+    }
+
     setLoading(true);
     setStep(2);
 
@@ -264,8 +273,18 @@ export default function SetupPage() {
       clearInterval(progressInterval);
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Error en la extracción");
+        let errorMsg = "Error en la extracción";
+        try {
+          const err = await response.json();
+          errorMsg = err.error || errorMsg;
+        } catch {
+          if (response.status === 413) {
+            errorMsg = "El archivo es demasiado grande. El límite de tamaño para extracción por IA es de 4.5 MB. Por favor, sube un documento más liviano (por ejemplo, el contrato sin anexos).";
+          } else {
+            errorMsg = `Error del servidor (${response.status}): ${response.statusText}`;
+          }
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();

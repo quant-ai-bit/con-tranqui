@@ -54,10 +54,14 @@ export const authOptions = {
       }
       return session;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+      }
+      if (trigger === "update" && session?.user) {
+        token.role = session.user.role;
+        token.name = session.user.name;
       }
       return token;
     }

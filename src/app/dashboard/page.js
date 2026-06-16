@@ -166,6 +166,10 @@ export default function DashboardPage() {
             ⚡ Generar Informe
           </Link>
 
+          <a href={`/api/reports/download-all?contractId=${contract.id}&month=${month}&year=${year}`} download className="btn btn-secondary btn-sm" style={{ height: "36px", display: "inline-flex", alignItems: "center", background: "rgba(99, 102, 241, 0.1)", borderColor: "rgba(99, 102, 241, 0.4)", color: "var(--text-primary)" }}>
+            📦 Descargar Todo (.ZIP)
+          </a>
+
           <button onClick={handleDeleteContract} className="btn btn-secondary btn-sm" style={{ height: "36px", display: "inline-flex", alignItems: "center", borderColor: "rgba(239, 68, 68, 0.4)", color: "#ef4444" }}>
             🗑️ Eliminar Contrato
           </button>
