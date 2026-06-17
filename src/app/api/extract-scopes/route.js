@@ -88,10 +88,41 @@ export async function POST(request) {
       } catch (err) {
         console.warn(`[extract-scopes] Error al extraer texto localmente de PDF: ${err.message}. Se intentará enviar crudo a Gemini.`);
       }
+    } else if (fileName.endsWith(".docx")) {
+      try {
+        console.log(`[extract-scopes] Intentando extraer texto del DOCX '${fileName}' de forma local...`);
+        const JSZip = (await import("jszip")).default;
+        const zip = await JSZip.loadAsync(fileBuffer);
+        const docXml = await zip.file("word/document.xml").async("text");
+        
+        const paragraphMatches = docXml.match(/<w:p[^>]*>([\s\S]*?)<\/w:p>/g);
+        if (paragraphMatches) {
+          const paragraphs = [];
+          for (const p of paragraphMatches) {
+            const textMatches = p.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g);
+            if (textMatches) {
+              const pText = textMatches.map(m => {
+                const content = m.replace(/<w:t[^>]*>/, "").replace(/<\/w:t>/, "");
+                return content
+                  .replace(/&amp;/g, "&")
+                  .replace(/&lt;/g, "<")
+                  .replace(/&gt;/g, ">")
+                  .replace(/&quot;/g, '"')
+                  .replace(/&#39;/g, "'");
+              }).join("");
+              paragraphs.push(pText);
+            }
+          }
+          text = paragraphs.join("\n");
+        }
+        console.log(`[extract-scopes] Texto extraído localmente del DOCX. Caracteres: ${text.length}`);
+      } catch (err) {
+        console.warn(`[extract-scopes] Error al extraer texto localmente de DOCX: ${err.message}.`);
+      }
     } else if (fileName.endsWith(".txt") || fileName.endsWith(".md")) {
       text = fileBuffer.toString("utf-8");
     } else {
-      // For DOCX and other formats, send as base64 to Gemini directly
+      // For other formats, send as base64 to Gemini directly (or keep empty)
       text = "";
     }
 
@@ -131,17 +162,16 @@ export async function POST(request) {
     // Preparar el prompt
     let promptParts = [{ text: EXTRACTION_PROMPT + "\n\nREGLA ADICIONAL: Asegúrate de usar una ortografía y gramática en español impecables, incluyendo tildes/acentos correctamente en todas las palabras que lo requieran (ej. 'acción', 'turística', 'identificación', 'ejecución', 'obligación')." }];
     
-    // Si es un PDF y no se pudo extraer texto sustancial, o si es un formato no soportado localmente (DOCX),
-    // lo enviamos como archivo base64 a Gemini para que use su OCR visual
-    const isScannedOrBinary = (!text || text.trim().length < 1500);
+    // Si es un PDF y no se pudo extraer texto sustancial, lo enviamos como archivo base64 a Gemini para que use su OCR visual.
+    // Para archivos DOCX no lo enviamos como binario porque Gemini API no soporta el MIME type de DOCX nativamente en inlineData.
+    const isScannedOrBinary = (!text || text.trim().length < 1500) && !fileName.endsWith(".docx");
     
-    if (isScannedOrBinary && (fileName.endsWith(".pdf") || fileName.endsWith(".docx"))) {
-      const mimeType = fileName.endsWith(".pdf") ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (isScannedOrBinary && fileName.endsWith(".pdf")) {
       console.log(`[extract-scopes] Archivo '${fileName}' sin texto indexable sustancial (caracteres: ${text ? text.trim().length : 0}). Enviando en base64 a Gemini...`);
       promptParts.push({
         inlineData: {
           data: fileBuffer.toString("base64"),
-          mimeType
+          mimeType: "application/pdf"
         }
       });
       promptParts.push({ text: `\n\nAnaliza este documento que te he adjuntado.` });
