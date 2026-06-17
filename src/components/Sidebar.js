@@ -119,32 +119,53 @@ export default function Sidebar() {
 
       <div className="sidebar-footer">
         {session?.user ? (
-          <div className="sidebar-user" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", overflow: "hidden" }}>
-              <div className="sidebar-avatar">
-                {session.user.image ? (
-                  <img src={session.user.image} alt={session.user.name || "User"} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
-                ) : (
-                  (session.user.name || session.user.email || "U").charAt(0).toUpperCase()
-                )}
-              </div>
-              <div className="sidebar-user-info" style={{ overflow: "hidden" }}>
-                <div className="sidebar-user-name" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {session.user.name || "Usuario"}
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+            <div className="sidebar-user" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", overflow: "hidden" }}>
+                <div className="sidebar-avatar">
+                  {session.user.image ? (
+                    <img src={session.user.image} alt={session.user.name || "User"} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+                  ) : (
+                    (session.user.name || session.user.email || "U").charAt(0).toUpperCase()
+                  )}
                 </div>
-                <div className="sidebar-user-role" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {session.user.email}
+                <div className="sidebar-user-info" style={{ overflow: "hidden" }}>
+                  <div className="sidebar-user-name" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {session.user.name || "Usuario"}
+                  </div>
+                  <div className="sidebar-user-role" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {session.user.email}
+                  </div>
                 </div>
               </div>
+              <button 
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="btn btn-ghost btn-sm"
+                title="Cerrar sesión"
+                style={{ padding: "4px 8px" }}
+              >
+                🚪
+              </button>
             </div>
-            <button 
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="btn btn-ghost btn-sm"
-              title="Cerrar sesión"
-              style={{ padding: "4px 8px" }}
-            >
-              🚪
-            </button>
+            
+            {/* Indicador de Rama y Versión */}
+            <div style={{ 
+              fontSize: "0.68rem", 
+              color: "var(--text-muted)", 
+              display: "flex", 
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "2px 4px",
+              borderTop: "1px solid rgba(255,255,255,0.03)",
+              paddingTop: "6px"
+            }}>
+              <span>Rama: <strong style={{ color: "var(--accent-indigo)" }}>{process.env.VERCEL_GIT_COMMIT_REF || "desarrollo"}</strong></span>
+              {process.env.VERCEL_GIT_COMMIT_SHA && (
+                <span title={process.env.VERCEL_GIT_COMMIT_SHA}>
+                  SHA: {process.env.VERCEL_GIT_COMMIT_SHA.substring(0, 7)}
+                </span>
+              )}
+            </div>
           </div>
         ) : (
           <div className="sidebar-user">
