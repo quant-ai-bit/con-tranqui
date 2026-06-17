@@ -10,6 +10,74 @@ const STEPS = [
   { number: 4, title: "Guardar", icon: "✅" },
 ];
 
+// Helper to load external scripts dynamically
+const loadScript = (url) => {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${url}"]`);
+    if (existing) {
+      resolve();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = url;
+    script.onload = () => resolve();
+    script.onerror = (e) => reject(e);
+    document.head.appendChild(script);
+  });
+};
+
+const extractTextFromPdfClient = async (fileObj) => {
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js");
+  const pdfjsLib = window.pdfjsLib;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+
+  const arrayBuffer = await fileObj.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = "";
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items.map((item) => item.str).join(" ");
+    fullText += pageText + "\n";
+  }
+  return fullText;
+};
+
+const extractTextFromDocxClient = async (fileObj) => {
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+  const JSZip = window.JSZip;
+
+  const arrayBuffer = await fileObj.arrayBuffer();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const docFile = zip.file("word/document.xml");
+  if (!docFile) {
+    throw new Error("No es un archivo DOCX válido.");
+  }
+  const docXml = await docFile.async("text");
+  const paragraphMatches = docXml.match(/<w:p[^>]*>([\s\S]*?)<\/w:p>/g);
+  const paragraphs = [];
+
+  if (paragraphMatches) {
+    for (const p of paragraphMatches) {
+      const textMatches = p.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g);
+      if (textMatches) {
+        const pText = textMatches.map(m => {
+          const content = m.replace(/<w:t[^>]*>/, "").replace(/<\/w:t>/, "");
+          return content
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
+        }).join("");
+        paragraphs.push(pText);
+      }
+    }
+  }
+  return paragraphs.join("\n");
+};
+
 export default function SetupPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -223,9 +291,9 @@ export default function SetupPage() {
     setError("");
 
     if (inputMode === "file" && file) {
-      const MAX_SIZE = 4.5 * 1024 * 1024; // 4.5 MB
+      const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
       if (file.size > MAX_SIZE) {
-        setError("El archivo es demasiado grande. El límite de tamaño para extracción por IA es de 4.5 MB. Por favor, sube un documento más liviano (por ejemplo, el contrato sin anexos).");
+        setError("El archivo es demasiado grande. El límite de tamaño para extracción por IA es de 20 MB. Por favor, sube un documento más liviano.");
         return;
       }
     }
@@ -255,12 +323,45 @@ export default function SetupPage() {
     }, 800);
 
     try {
+      let fileToSend = file;
+      let isParsedClientSide = false;
+
+      if (inputMode === "file" && file) {
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        // If file is larger than 4 MB, extract text client-side to bypass Vercel serverless body size limit (4.5 MB)
+        if (file.size > 4 * 1024 * 1024) {
+          try {
+            setLoadingMessage("El archivo supera el límite estándar de Vercel. Extrayendo texto localmente en tu navegador para optimizar el envío...");
+            let extractedText = "";
+            if (ext === "pdf") {
+              extractedText = await extractTextFromPdfClient(file);
+              isParsedClientSide = true;
+            } else if (ext === "docx") {
+              extractedText = await extractTextFromDocxClient(file);
+              isParsedClientSide = true;
+            }
+            
+            if (isParsedClientSide && extractedText.trim().length > 100) {
+              fileToSend = new Blob([extractedText], { type: "text/plain" });
+            } else if (isParsedClientSide) {
+              console.warn("Client-side text extraction returned empty or too short text.");
+            }
+          } catch (err) {
+            console.error("Client-side text extraction failed:", err);
+          }
+        }
+      }
+
       const formData = new FormData();
       if (inputMode === "paste") {
         const textBlob = new Blob([pastedText], { type: "text/plain" });
         formData.append("file", textBlob, "texto_pegado.txt");
       } else if (file) {
-        formData.append("file", file);
+        if (isParsedClientSide && fileToSend instanceof Blob) {
+          formData.append("file", fileToSend, `${file.name}.txt`);
+        } else {
+          formData.append("file", file);
+        }
       } else {
         throw new Error("No se ha seleccionado ningún archivo o texto.");
       }
@@ -279,7 +380,7 @@ export default function SetupPage() {
           errorMsg = err.error || errorMsg;
         } catch {
           if (response.status === 413) {
-            errorMsg = "El archivo es demasiado grande. El límite de tamaño para extracción por IA es de 4.5 MB. Por favor, sube un documento más liviano (por ejemplo, el contrato sin anexos).";
+            errorMsg = "El archivo es demasiado grande para el servidor (límite de 4.5 MB superado). Por favor, intenta de nuevo o sube una versión en texto plano o más liviana.";
           } else {
             errorMsg = `Error del servidor (${response.status}): ${response.statusText}`;
           }

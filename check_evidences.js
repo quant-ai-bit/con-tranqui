@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const evidencesDir = 'c:\\Users\\User\\Desktop\\ANTIGRAVITY\\CONTRATO TELLO\\EVIDENCIAS';
+const evidencesDir = 'c:\\Users\\User\\Desktop\\ANTIGRAVITY\\con-tranqui\\EVIDENCIAS';
 
 function walkDir(dir) {
   let results = [];
