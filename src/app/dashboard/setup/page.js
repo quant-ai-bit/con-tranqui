@@ -29,10 +29,20 @@ const loadScript = (url) => {
 const extractTextFromPdfClient = async (fileObj) => {
   await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js");
   const pdfjsLib = window.pdfjsLib;
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    try {
+      const workerCode = await fetch("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js").then(r => r.text());
+      const blob = new Blob([workerCode], { type: "application/javascript" });
+      pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+    } catch (e) {
+      console.warn("Could not load PDF worker as blob, falling back to CDN directly", e);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+    }
+  }
 
   const arrayBuffer = await fileObj.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
   let fullText = "";
 
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -328,8 +338,8 @@ export default function SetupPage() {
 
       if (inputMode === "file" && file) {
         const ext = file.name.split('.').pop()?.toLowerCase();
-        // If file is larger than 4 MB, extract text client-side to bypass Vercel serverless body size limit (4.5 MB)
-        if (file.size > 4 * 1024 * 1024) {
+        // If file is larger than 4.5 MB, extract text client-side to bypass Vercel serverless body size limit (4.5 MB)
+        if (file.size > 4.5 * 1024 * 1024) {
           try {
             setLoadingMessage("El archivo supera el límite estándar de Vercel. Extrayendo texto localmente en tu navegador para optimizar el envío...");
             let extractedText = "";
@@ -339,15 +349,18 @@ export default function SetupPage() {
             } else if (ext === "docx") {
               extractedText = await extractTextFromDocxClient(file);
               isParsedClientSide = true;
+            } else {
+              throw new Error("Los archivos mayores a 4.5 MB deben ser de formato PDF o DOCX.");
             }
             
             if (isParsedClientSide && extractedText.trim().length > 100) {
               fileToSend = new Blob([extractedText], { type: "text/plain" });
-            } else if (isParsedClientSide) {
-              console.warn("Client-side text extraction returned empty or too short text.");
+            } else {
+              throw new Error("No pudimos extraer suficiente texto del archivo (posiblemente esté escaneado o protegido).");
             }
           } catch (err) {
             console.error("Client-side text extraction failed:", err);
+            throw new Error(`No se pudo procesar el archivo localmente para optimizar el envío: ${err.message}. Por favor, intenta de nuevo o sube una versión en texto plano o un archivo menor a 4.5 MB.`);
           }
         }
       }
