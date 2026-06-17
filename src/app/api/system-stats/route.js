@@ -17,16 +17,137 @@ export async function GET() {
       return NextResponse.json({ error: "Acceso prohibido: se requiere rol de Administrador." }, { status: 403 });
     }
 
-    // 1. Fetch Users
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+    // 1. Fetch Users with their relations to compile stats and logs
+    const dbUsers = await prisma.user.findMany({
+      include: {
+        contracts: {
+          include: {
+            reports: true,
+            scopes: {
+              include: {
+                evidences: true,
+                activities: true,
+                entries: true
+              }
+            }
+          }
+        }
       },
       orderBy: { createdAt: "desc" },
+    });
+
+    const users = dbUsers.map(user => {
+      const userContracts = user.contracts || [];
+      const userReports = [];
+      const userEvidences = [];
+      const userActivities = [];
+      const userEntries = [];
+
+      userContracts.forEach(c => {
+        if (c.reports) userReports.push(...c.reports);
+        if (c.scopes) {
+          c.scopes.forEach(s => {
+            if (s.evidences) userEvidences.push(...s.evidences);
+            if (s.activities) userActivities.push(...s.activities);
+            if (s.entries) userEntries.push(...s.entries);
+          });
+        }
+      });
+
+      // Compute evidence distribution per user
+      const evidenceTypeDistribution = {
+        image: 0,
+        document: 0,
+        text: 0,
+        audio: 0,
+        other: 0,
+      };
+      let totalEvidenceSize = 0;
+      userEvidences.forEach(ev => {
+        totalEvidenceSize += ev.fileSize || 0;
+        const type = ev.fileType || "other";
+        if (evidenceTypeDistribution[type] !== undefined) {
+          evidenceTypeDistribution[type]++;
+        } else {
+          evidenceTypeDistribution.other++;
+        }
+      });
+
+      // Compile activity log
+      const rawEvents = [];
+      
+      // User registered
+      rawEvents.push({
+        type: 'user',
+        description: 'Se registró en la plataforma',
+        date: user.createdAt
+      });
+
+      // Contracts
+      userContracts.forEach(c => {
+        rawEvents.push({
+          type: 'contract',
+          description: `Configuró el contrato: ${c.title || c.contractNumber || 'Sin título'}`,
+          date: c.createdAt
+        });
+      });
+
+      // Evidences
+      userEvidences.forEach(ev => {
+        rawEvents.push({
+          type: 'evidence',
+          description: `Subió la evidencia: ${ev.fileName}`,
+          date: ev.uploadedAt
+        });
+      });
+
+      // Reports
+      userReports.forEach(rep => {
+        rawEvents.push({
+          type: 'report',
+          description: `Generó reporte ${rep.type === 'activities' ? 'de actividades' : 'de supervisión'} para mes ${rep.month}/${rep.year}`,
+          date: rep.createdAt
+        });
+      });
+
+      // Activities
+      userActivities.forEach(act => {
+        rawEvents.push({
+          type: 'activity',
+          description: `Registró actividad: ${act.title}${act.location ? ' en ' + act.location : ''}`,
+          date: act.createdAt
+        });
+      });
+
+      // Entries
+      userEntries.forEach(entry => {
+        rawEvents.push({
+          type: 'entry',
+          description: `Actualizó bitácora de mes ${entry.month}/${entry.year}`,
+          date: entry.updatedAt
+        });
+      });
+
+      // Sort events descending by date
+      const sortedEvents = rawEvents.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const lastActive = sortedEvents[0]?.date || user.createdAt;
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        stats: {
+          totalContracts: userContracts.length,
+          totalEvidences: userEvidences.length,
+          totalEvidenceSize,
+          totalReports: userReports.length,
+          evidenceTypeDistribution
+        },
+        lastActive,
+        activityLog: sortedEvents.slice(0, 15) // Recent 15 events
+      };
     });
 
     // 2. Count contracts
