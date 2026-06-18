@@ -335,6 +335,7 @@ export default function SetupPage() {
     try {
       let fileToSend = file;
       let isParsedClientSide = false;
+      let blobUrl = null;
 
       if (inputMode === "file" && file) {
         const ext = file.name.split('.').pop()?.toLowerCase();
@@ -359,8 +360,20 @@ export default function SetupPage() {
               throw new Error("No pudimos extraer suficiente texto del archivo (posiblemente esté escaneado o protegido).");
             }
           } catch (err) {
-            console.error("Client-side text extraction failed:", err);
-            throw new Error(`No se pudo procesar el archivo localmente para optimizar el envío: ${err.message}. Por favor, intenta de nuevo o sube una versión en texto plano o un archivo menor a 4.5 MB.`);
+            console.warn("Client-side text extraction failed, uploading directly to Vercel Blob as fallback:", err);
+            setLoadingMessage("No se pudo extraer texto localmente. Subiendo archivo a la nube de forma segura para análisis con IA (esto puede tardar unos segundos)...");
+            
+            try {
+              const { upload } = await import("@vercel/blob/client");
+              const blob = await upload(file.name, file, {
+                access: "public",
+                handleUploadUrl: "/api/upload",
+              });
+              blobUrl = blob.url;
+            } catch (uploadErr) {
+              console.error("Vercel Blob upload failed:", uploadErr);
+              throw new Error(`No se pudo procesar ni subir el archivo: ${uploadErr.message || uploadErr}. Por favor, intenta de nuevo o sube una versión en texto plano o un archivo menor a 20 MB.`);
+            }
           }
         }
       }
@@ -370,7 +383,9 @@ export default function SetupPage() {
         const textBlob = new Blob([pastedText], { type: "text/plain" });
         formData.append("file", textBlob, "texto_pegado.txt");
       } else if (file) {
-        if (isParsedClientSide && fileToSend instanceof Blob) {
+        if (blobUrl) {
+          formData.append("blobUrl", blobUrl);
+        } else if (isParsedClientSide && fileToSend instanceof Blob) {
           formData.append("file", fileToSend, `${file.name}.txt`);
         } else {
           formData.append("file", file);
@@ -393,7 +408,7 @@ export default function SetupPage() {
           errorMsg = err.error || errorMsg;
         } catch {
           if (response.status === 413) {
-            errorMsg = "El archivo es demasiado grande para el servidor (límite de 4.5 MB superado). Por favor, intenta de nuevo o sube una versión en texto plano o más liviana.";
+            errorMsg = "El archivo es demasiado grande para el servidor (límite de 20 MB superado). Por favor, intenta de nuevo o sube un documento más liviano.";
           } else {
             errorMsg = `Error del servidor (${response.status}): ${response.statusText}`;
           }
