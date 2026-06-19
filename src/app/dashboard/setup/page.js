@@ -971,16 +971,23 @@ export default function SetupPage() {
                       {scope.orderNumber}
                     </div>
                     <div className="wizard-scope-title-area">
-                      {scope._editing || !scope.title ? (
-                        <input
+                       {scope._editing || !scope.title ? (
+                        <textarea
                           className="form-input"
+                          rows={3}
                           value={scope.title}
                           onChange={(e) =>
                             updateScope(index, "title", e.target.value)
                           }
                           onClick={(e) => e.stopPropagation()}
                           placeholder="Escribe la obligación/alcance..."
-                          style={{ fontSize: "0.85rem" }}
+                          style={{
+                            fontSize: "0.85rem",
+                            resize: "vertical",
+                            minHeight: "4.5rem",
+                            width: "100%",
+                            fontFamily: "inherit",
+                          }}
                         />
                       ) : (
                         <span className="wizard-scope-text">

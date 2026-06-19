@@ -1001,7 +1001,7 @@ input[type="file"]::-webkit-file-upload-button:hover {
   line-height: 1.5;
   color: var(--text-primary);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
