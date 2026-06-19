@@ -59,16 +59,32 @@ export async function POST(request) {
   try {
     const formData = await request.formData();
     const file = formData.get("file");
+    const blobUrl = formData.get("blobUrl");
 
-    if (!file) {
+    if (!file && !blobUrl) {
       return NextResponse.json(
-        { error: "No se proporcionó ningún archivo." },
+        { error: "No se proporcionó ningún archivo o URL de blob." },
         { status: 400 }
       );
     }
 
-    const fileName = file.name;
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    let fileName = "";
+    let fileBuffer;
+
+    if (blobUrl) {
+      console.log(`[extract-scopes] Descargando archivo desde Vercel Blob: ${blobUrl}`);
+      const res = await fetch(blobUrl);
+      if (!res.ok) {
+        throw new Error(`Error al descargar el archivo desde Vercel Blob: ${res.statusText}`);
+      }
+      fileBuffer = Buffer.from(await res.arrayBuffer());
+      const urlParts = blobUrl.split("/");
+      fileName = urlParts[urlParts.length - 1];
+    } else {
+      fileName = file.name;
+      fileBuffer = Buffer.from(await file.arrayBuffer());
+    }
+
     let text = "";
 
     if (fileName.endsWith(".pdf")) {
