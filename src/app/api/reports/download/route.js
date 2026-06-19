@@ -48,9 +48,18 @@ export async function GET(request) {
       buffer = await readFile(filePath);
     }
 
+    let contentType = "application/octet-stream";
+    if (baseName.endsWith(".pdf")) {
+      contentType = "application/pdf";
+    } else if (baseName.endsWith(".xlsx")) {
+      contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    } else if (baseName.endsWith(".docx")) {
+      contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+
     return new NextResponse(buffer, {
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Type": contentType,
         "Content-Disposition": `attachment; filename="${encodeURIComponent(baseName)}"`,
       },
     });

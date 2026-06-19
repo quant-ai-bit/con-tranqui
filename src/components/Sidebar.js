@@ -47,7 +47,7 @@ export default function Sidebar() {
     <aside className="sidebar">
       <Link href="/dashboard" className="sidebar-logo">
         <div className="sidebar-logo-icon">📄</div>
-        <span className="sidebar-logo-text">ContratoIA</span>
+        <span className="sidebar-logo-text">Tu Tranqui</span>
       </Link>
 
       <nav className="sidebar-nav">

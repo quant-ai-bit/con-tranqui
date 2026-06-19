@@ -80,7 +80,7 @@ export default function LoginPage() {
       <div className="card animate-in" style={{ width: "100%", maxWidth: 440, padding: 32 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ fontSize: "2.5rem", marginBottom: 8 }}>📝</div>
-          <h1 className="main-title" style={{ fontSize: "1.75rem", marginBottom: 8 }}>ContratoIA</h1>
+          <h1 className="main-title" style={{ fontSize: "1.75rem", marginBottom: 8 }}>Tu Tranqui</h1>
           <p className="main-subtitle" style={{ fontSize: "0.95rem" }}>
             {isLogin ? "Inicia sesión para gestionar tus informes" : "Crea tu cuenta de contratista"}
           </p>

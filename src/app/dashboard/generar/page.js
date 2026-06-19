@@ -71,6 +71,10 @@ export default function GenerarPage() {
   const [progressMessage, setProgressMessage] = useState("");
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [fileName, setFileName] = useState("");
+  const [pdfDownloadUrl, setPdfDownloadUrl] = useState(null);
+  const [pdfFileName, setPdfFileName] = useState("");
+  const [excelDownloadUrl, setExcelDownloadUrl] = useState(null);
+  const [excelFileName, setExcelFileName] = useState("");
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -351,26 +355,27 @@ export default function GenerarPage() {
     setStep(3);
 
     const messages = [
-      "Verificando alcances y observaciones...",
-      "Recopilando anexos y actividades...",
-      "Generando tablas de datos contractuales...",
-      "Construyendo documento Word oficial...",
-      "Incrustando imágenes de firmas autorizadas...",
-      "Formateando márgenes e interlineado...",
-      "Finalizando informe...",
+      "Preparando y verificando datos...",
+      "Generando documento Word (.docx)...",
+      "Estructurando PDF (.pdf) con firmas...",
+      "Creando cronograma en Excel (.xlsx)...",
+      "Compilando y guardando archivos...",
+      "Finalizando generación...",
     ];
 
     let p = 0;
     const interval = setInterval(() => {
-      p += Math.random() * 14;
+      p += Math.random() * 12;
       if (p > 90) p = 90;
       setProgress(Math.round(p));
-      const idx = Math.min(Math.floor(p / 14), messages.length - 1);
+      const idx = Math.min(Math.floor(p / 16), messages.length - 1);
       setProgressMessage(messages[idx]);
-    }, 500);
+    }, 450);
 
     try {
-      const response = await fetch("/api/reports/generate", {
+      // 1. Generate Word
+      setProgressMessage("Generando documento Word (.docx)...");
+      const wordRes = await fetch("/api/reports/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -383,18 +388,63 @@ export default function GenerarPage() {
         }),
       });
 
-      clearInterval(interval);
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Error al generar el informe.");
+      if (!wordRes.ok) {
+        const err = await wordRes.json();
+        throw new Error(err.error || "Error al generar el informe en Word.");
       }
+      const wordResult = await wordRes.json();
+      setDownloadUrl(wordResult.downloadUrl);
+      setFileName(wordResult.fileName);
 
-      const result = await response.json();
-      setDownloadUrl(result.downloadUrl);
-      setFileName(result.fileName);
+      // 2. Generate PDF
+      setProgressMessage("Generando documento PDF (.pdf)...");
+      const pdfRes = await fetch("/api/reports/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contractId: data.contract.id,
+          month,
+          year,
+          driveLink,
+          periodoActual,
+          periodoTexto,
+        }),
+      });
+
+      if (!pdfRes.ok) {
+        const err = await pdfRes.json();
+        throw new Error(err.error || "Error al generar el informe en PDF.");
+      }
+      const pdfResult = await pdfRes.json();
+      setPdfDownloadUrl(pdfResult.downloadUrl);
+      setPdfFileName(pdfResult.fileName);
+
+      // 3. Generate Excel
+      setProgressMessage("Generando hoja de Excel (.xlsx)...");
+      const excelRes = await fetch("/api/reports/generate-excel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contractId: data.contract.id,
+          month,
+          year,
+          driveLink,
+          periodoActual,
+          periodoTexto,
+        }),
+      });
+
+      if (!excelRes.ok) {
+        const err = await excelRes.json();
+        throw new Error(err.error || "Error al generar el informe en Excel.");
+      }
+      const excelResult = await excelRes.json();
+      setExcelDownloadUrl(excelResult.downloadUrl);
+      setExcelFileName(excelResult.fileName);
+
+      clearInterval(interval);
       setProgress(100);
-      setProgressMessage("¡Informe generado exitosamente!");
+      setProgressMessage("¡Todos los informes generados exitosamente!");
 
       setTimeout(() => {
         setGenerating(false);
@@ -408,11 +458,11 @@ export default function GenerarPage() {
     }
   };
 
-  const handleDownload = () => {
-    if (!downloadUrl) return;
+  const handleDownloadFormat = (url, name) => {
+    if (!url) return;
     const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = fileName;
+    link.href = url;
+    link.download = name;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1072,12 +1122,12 @@ export default function GenerarPage() {
           <div className="card" style={{ textAlign: "center", padding: 48, marginBottom: 24 }}>
             <div style={{ fontSize: "4rem", marginBottom: 16 }}>🎉</div>
             <h2 style={{ fontSize: "1.25rem", marginBottom: 8 }}>
-              ¡Informe generado exitosamente!
+              ¡Informes generados exitosamente!
             </h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: 8 }}>
-              {fileName}
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: 12 }}>
+              Se han preparado los documentos correspondientes a este periodo.
             </p>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: 24 }}>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: 0 }}>
               Con {scopes.length} alcances, observaciones y firmas autorizadas
             </p>
           </div>
@@ -1086,26 +1136,98 @@ export default function GenerarPage() {
             <div className="card-header">
               <span className="card-title">📋 Descargar Informe de Actividades</span>
               <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
-                {monthNames[month - 1]} {year} · .docx
+                {monthNames[month - 1]} {year}
               </span>
             </div>
-            <button
-              className="btn btn-primary btn-lg"
-              style={{ width: "100%" }}
-              onClick={handleDownload}
-            >
-              📥 Descargar documento Word (.docx)
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
+              
+              {/* Word Button */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "16px 20px", background: "rgba(59, 130, 246, 0.06)",
+                borderRadius: "var(--radius-sm)", border: "1px solid rgba(59, 130, 246, 0.15)",
+                flexWrap: "wrap", gap: 12
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: "1.8rem" }}>📘</span>
+                  <div style={{ textAlign: "left" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 600, display: "block" }}>Documento de Word (.docx)</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", wordBreak: "break-all" }}>{fileName}</span>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: "#2563eb", borderColor: "#2563eb", padding: "8px 16px", fontSize: "0.8rem", height: "auto" }}
+                  onClick={() => handleDownloadFormat(downloadUrl, fileName)}
+                >
+                  📥 Descargar Word
+                </button>
+              </div>
+
+              {/* PDF Button */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "16px 20px", background: "rgba(239, 68, 68, 0.06)",
+                borderRadius: "var(--radius-sm)", border: "1px solid rgba(239, 68, 68, 0.15)",
+                flexWrap: "wrap", gap: 12
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: "1.8rem" }}>📕</span>
+                  <div style={{ textAlign: "left" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 600, display: "block" }}>Documento PDF (.pdf)</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", wordBreak: "break-all" }}>{pdfFileName}</span>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: "#dc2626", borderColor: "#dc2626", padding: "8px 16px", fontSize: "0.8rem", height: "auto" }}
+                  onClick={() => handleDownloadFormat(pdfDownloadUrl, pdfFileName)}
+                >
+                  📥 Descargar PDF
+                </button>
+              </div>
+
+              {/* Excel Button */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "16px 20px", background: "rgba(34, 197, 94, 0.06)",
+                borderRadius: "var(--radius-sm)", border: "1px solid rgba(34, 197, 94, 0.15)",
+                flexWrap: "wrap", gap: 12
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: "1.8rem" }}>📗</span>
+                  <div style={{ textAlign: "left" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 600, display: "block" }}>Hoja de Excel (.xlsx)</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", wordBreak: "break-all" }}>{excelFileName}</span>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: "#16a34a", borderColor: "#16a34a", padding: "8px 16px", fontSize: "0.8rem", height: "auto" }}
+                  onClick={() => handleDownloadFormat(excelDownloadUrl, excelFileName)}
+                >
+                  📥 Descargar Excel
+                </button>
+              </div>
+
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 12 }}>
-            <Link href={`/dashboard?month=${month}&year=${year}`} className="btn btn-secondary" style={{ flex: 1, textAlign: "center" }}>
+            <Link href={`/dashboard?month=${month}&year=${year}`} className="btn btn-secondary" style={{ flex: 1, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
               ← Volver al Dashboard
             </Link>
             <button
               className="btn btn-secondary"
               style={{ flex: 1 }}
-              onClick={() => { setStep(1); setProgress(0); setDownloadUrl(null); setDisclaimerAccepted(false); }}
+              onClick={() => {
+                setStep(1);
+                setProgress(0);
+                setDownloadUrl(null);
+                setPdfDownloadUrl(null);
+                setExcelDownloadUrl(null);
+                setDisclaimerAccepted(false);
+              }}
             >
               🔄 Generar otro informe
             </button>
