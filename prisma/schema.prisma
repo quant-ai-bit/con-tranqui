@@ -121,6 +121,7 @@ model Activity {
   location    String?    // e.g. "Ukumari"
   month       Int
   year        Int
+  completed   Boolean    @default(false)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   scopeId     String

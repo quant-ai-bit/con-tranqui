@@ -185,7 +185,7 @@ export async function PUT(request, { params }) {
     }
 
     const body = await request.json();
-    const { activityId, title, date, location, purpose } = body;
+    const { activityId, title, date, location, purpose, completed } = body;
 
     if (!activityId) {
       return NextResponse.json({ error: "ID de actividad requerido" }, { status: 400 });
@@ -207,6 +207,7 @@ export async function PUT(request, { params }) {
         title: title !== undefined ? title : activity.title,
         date: date !== undefined ? date : activity.date,
         location: location !== undefined ? location : activity.location,
+        completed: completed !== undefined ? completed : activity.completed,
       }
     });
 

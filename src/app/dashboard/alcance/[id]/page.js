@@ -301,7 +301,7 @@ function ActivityEvidenceItem({ evidence, onDelete, onUpdate, onSelectVersion })
   );
 }
 
-function ActivityCard({ activity, onUploadEvidence, onDeleteEvidence, onUpdateEvidence, onDeleteActivity, onSelectVersion }) {
+function ActivityCard({ activity, onUploadEvidence, onDeleteEvidence, onUpdateEvidence, onDeleteActivity, onSelectVersion, onToggleComplete }) {
   const [showAddEvidence, setShowAddEvidence] = useState(false);
   const [evidenceTitle, setEvidenceTitle] = useState("");
   const [evidenceType, setEvidenceType] = useState("text"); // text, image, file
@@ -349,7 +349,12 @@ function ActivityCard({ activity, onUploadEvidence, onDeleteEvidence, onUpdateEv
   };
 
   return (
-    <div className="card animate-in" style={{ marginBottom: 24, border: "1px solid var(--border-glass)" }}>
+    <div className="card animate-in" style={{
+      marginBottom: 24,
+      border: "1px solid var(--border-glass)",
+      borderLeft: activity.completed ? "4px solid #10B981" : "4px solid #F87171",
+      transition: "border-left 0.3s ease"
+    }}>
       {/* Activity Header Info */}
       <div style={{
         display: "flex",
@@ -376,6 +381,34 @@ function ActivityCard({ activity, onUploadEvidence, onDeleteEvidence, onUpdateEv
         </div>
         
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => onToggleComplete(activity.id, !activity.completed)}
+            style={{
+              fontSize: "0.75rem",
+              padding: "6px 12px",
+              borderRadius: "6px",
+              fontWeight: 600,
+              cursor: "pointer",
+              border: "1px solid",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 0.2s",
+              background: activity.completed ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.1)",
+              color: activity.completed ? "#34D399" : "#F87171",
+              borderColor: activity.completed ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)",
+              outline: "none"
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = activity.completed ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.2)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = activity.completed ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.1)";
+            }}
+          >
+            {activity.completed ? "✓ Completada" : "⚠ Incompleta"}
+          </button>
           <a
             href={`/api/activities/${activity.id}/annex`}
             className="btn btn-primary btn-sm"
@@ -829,6 +862,37 @@ export default function AlcancePage() {
     }
   };
 
+  const handleToggleComplete = async (activityId, completed) => {
+    try {
+      const res = await fetch(`/api/scopes/${scopeId}/activities`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activityId,
+          completed
+        })
+      });
+
+      if (!res.ok) throw new Error("Error al actualizar el estado de la actividad");
+      const data = await res.json();
+
+      setActivities((prev) => prev.map(act => {
+        if (act.id === activityId) {
+          return {
+            ...act,
+            completed: data.activity.completed
+          };
+        }
+        return act;
+      }));
+
+      setSuccessMsg(completed ? "Actividad marcada como completada." : "Actividad marcada como incompleta.");
+      setTimeout(() => setSuccessMsg(""), 2000);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   if (loading) {
     return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}><div className="wizard-spinner" /></div>;
   }
@@ -970,6 +1034,7 @@ export default function AlcancePage() {
               onUpdateEvidence={handleUpdateEvidence}
               onDeleteActivity={handleDeleteActivity}
               onSelectVersion={handleSelectTextVersion}
+              onToggleComplete={handleToggleComplete}
             />
           ))}
         </div>
